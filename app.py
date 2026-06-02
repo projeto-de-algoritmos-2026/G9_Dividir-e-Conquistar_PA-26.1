@@ -17,6 +17,45 @@ BUS_LINES = [
 ]
 
 
+def merge_count_inversions(arr):
+    steps = []
+
+    def merge_sort(a):
+        if len(a) <= 1:
+            return a, 0
+        
+        mid = len(a) // 2
+        left, inv_left = merge_sort(a[:mid])
+        right, inv_right = merge_sort(a[mid:])
+        
+        merged = []
+        inversions = inv_left + inv_right
+        i = j = 0
+        
+        while i < len(left) and j < len(right):
+            if left[i] <= right[j]:
+                merged.append(left[i])
+                i += 1
+            else:
+                # Todos os elementos restantes em 'left' formam inversão com right[j]
+                inversions += len(left) - i
+                steps.append({
+                    "type": "inversion",
+                    "left_val": left[i],
+                    "right_val": right[j],
+                    "count": len(left) - i
+                })
+                merged.append(right[j])
+                j += 1
+        
+        merged.extend(left[i:])
+        merged.extend(right[j:])
+        return merged, inversions
+
+    sorted_arr, total = merge_sort(arr)
+    return total, steps
+
+
 def median_of_medians(arr, k=None):
     steps = []
     arr = list(arr)
@@ -117,6 +156,75 @@ def generate_scenario(chaos_level=0.5):
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/api/simulate", methods=["POST"])
+def simulate():
+    data        = request.get_json(silent=True) or {}
+    chaos_level = float(data.get("chaos_level", 0.5))
+    chaos_level = max(0.0, min(1.0, chaos_level))
+
+    scenario = generate_scenario(chaos_level)
+
+    # Mapear IDs da ordem real para indices da ordem planejada
+    planned = scenario["planned"]
+    real    = scenario["real"]
+    rank_map = {bus_id: idx for idx, bus_id in enumerate(planned)}
+    real_as_ranks = [rank_map[b] for b in real]
+
+    # Contagem de Inversoes
+    inversions, inv_steps = merge_count_inversions(real_as_ranks)
+
+    # Mediana das medianas nos atrasos
+    delays     = scenario["delays"]
+    median_val, mom_steps = median_of_medians(delays)
+
+    # Metricas derivadas
+    max_inversions = len(planned) * (len(planned) - 1) // 2
+    chaos_pct      = (inversions / max_inversions * 100) if max_inversions > 0 else 0
+
+    if chaos_pct < 20:
+        status = "OPERAÇÃO NORMAL"
+        status_level = "ok"
+    elif chaos_pct < 50:
+        status = "ATENÇÃO NECESSÁRIA"
+        status_level = "warning"
+    else:
+        status = "CAOS OPERACIONAL"
+        status_level = "critical"
+
+    # Inversoes por par de onibus (para visualizaçao)
+    inversion_pairs = []
+    for i in range(len(real)):
+        for j in range(i + 1, len(real)):
+            if rank_map[real[i]] > rank_map[real[j]]:
+                inversion_pairs.append((real[i], real[j]))
+
+    return jsonify({
+        "scenario": scenario,
+        "inversions": {
+            "count":          inversions,
+            "max_possible":   max_inversions,
+            "chaos_percent":  round(chaos_pct, 1),
+            "pairs":          inversion_pairs,
+            "steps":          inv_steps[:8],
+        },
+        "median": {
+            "value": median_val,
+            "delays": delays,
+            "steps": mom_steps[:10],
+        },
+        "status":       status,
+        "status_level": status_level,
+    })
+
+
+@app.route("/api/algorithm/inversion", methods=["POST"])
+def explain_inversion():
+    data = request.get_json(silent=True) or {}
+    arr  = data.get("array", [3, 1, 2, 5, 4])
+    count, steps = merge_count_inversions(arr)
+    return jsonify({"array": arr, "inversions": count, "steps": steps})
 
 
 @app.route("/api/algorithm/median", methods=["POST"])
