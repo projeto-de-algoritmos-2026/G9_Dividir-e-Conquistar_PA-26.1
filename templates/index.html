@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Análise de ônibus</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/css/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="header-brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 32 32" fill="none">
+            <rect
+              x="3"
+              y="8"
+              width="26"
+              height="16"
+              rx="3"
+              fill="currentColor"
+              opacity=".15"
+            />
+            <rect
+              x="3"
+              y="8"
+              width="26"
+              height="16"
+              rx="3"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <circle cx="9" cy="24" r="2.5" fill="currentColor" />
+            <circle cx="23" cy="24" r="2.5" fill="currentColor" />
+            <rect
+              x="7"
+              y="12"
+              width="18"
+              height="5"
+              rx="1"
+              fill="currentColor"
+              opacity=".4"
+            />
+            <line
+              x1="16"
+              y1="8"
+              x2="16"
+              y2="24"
+              stroke="currentColor"
+              stroke-width="1"
+              opacity=".3"
+            />
+          </svg>
+        </div>
+        <div>
+          <span class="brand-name">BusMetrics</span>
+          <span class="brand-sub">Análise de ônibus</span>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <label class="chaos-label">Caos:</label>
+        <div class="chaos-slider-wrap">
+          <input type="range" id="chaosSlider" min="0" max="100" value="50" />
+        </div>
+        <button class="btn-simulate" id="btnSimulate">Nova Simulação</button>
+      </div>
+    </header>
+
+    <main class="dashboard-grid">
+      <!-- ── COL 1: Ordens ── -->
+      <section class="panel panel-orders">
+        <div class="panel-header">
+          <h2>Sequência de Chegadas</h2>
+        </div>
+
+        <div class="order-columns">
+          <div class="order-col">
+            <div class="order-col-title">
+              <span class="dot dot-planned"></span>
+              PREVISTA
+            </div>
+            <ol class="order-list" id="plannedList"></ol>
+          </div>
+
+          <div class="order-divider">
+            <div class="divider-line"></div>
+            <div class="divider-icon">⇌</div>
+            <div class="divider-line"></div>
+          </div>
+
+          <div class="order-col">
+            <div class="order-col-title">
+              <span class="dot dot-real"></span>
+              REAL
+            </div>
+            <ol class="order-list" id="realList"></ol>
+          </div>
+        </div>
+
+        <!-- Inversões detectadas -->
+        <div class="inversion-pairs-wrap">
+          <div class="inv-pairs-title">Pares Invertidos</div>
+          <div id="inversionPairs" class="inv-pairs-list"></div>
+        </div>
+      </section>
+
+      <!-- ── COL 2: Visualização Central ── -->
+      <section class="panel panel-visual">
+        <div class="panel-header">
+          <h2>Visualização da Operação</h2>
+        </div>
+
+        <div class="bus-stage" id="busStage"></div>
+
+        <!-- Algoritmo: Inversões trace -->
+        <div class="algo-trace">
+          <div class="algo-trace-title">
+            <span class="algo-badge badge-inv">D&C</span>
+            Contagem de Inversões
+          </div>
+          <div class="algo-code" id="invTrace">
+            <span class="trace-hint"
+              >Execute uma simulação para ver o rastreio do algoritmo...</span
+            >
+          </div>
+        </div>
+      </section>
+
+      <!-- ── COL 3: Painel de Métricas ── -->
+      <section class="panel panel-metrics">
+        <div class="panel-header">
+          <h2>Métricas do Sistema</h2>
+        </div>
+
+        <!-- Status geral -->
+        <div class="status-card" id="statusCard">
+          <div class="status-indicator" id="statusIndicator"></div>
+          <div class="status-text" id="statusText">—</div>
+        </div>
+
+        <!-- Inversões -->
+        <div class="metric-block">
+          <div class="metric-label">Inversões Detectadas</div>
+          <div class="metric-value-row">
+            <span class="metric-big" id="invCount">—</span>
+            <span class="metric-sub"
+              >de <span id="invMax">—</span> possíveis</span
+            >
+          </div>
+          <div class="chaos-bar-wrap">
+            <div class="chaos-bar" id="chaosBar"></div>
+          </div>
+          <div class="chaos-pct" id="chaosPct">—% de desorganização</div>
+        </div>
+
+        <!-- Mediana das medianas -->
+        <div class="metric-block">
+          <div class="metric-label">Atraso Mediano - Mediana das Medianas</div>
+          <div class="metric-value-row">
+            <span class="metric-big" id="medianVal">—</span>
+            <span class="metric-sub">minutos</span>
+          </div>
+
+          <!-- Dot plot dos atrasos -->
+          <div class="delay-strip" id="delayStrip"></div>
+          <div class="delay-legend">
+            <span class="dl-item"
+              ><span class="dl-dot dl-neg"></span>Adiantado</span
+            >
+            <span class="dl-item"
+              ><span class="dl-dot dl-ok"></span>Normal</span
+            >
+            <span class="dl-item"
+              ><span class="dl-dot dl-late"></span>Atrasado</span
+            >
+            <span class="dl-item"
+              ><span class="dl-dot dl-med"></span>Mediana</span
+            >
+          </div>
+        </div>
+
+        <!-- Algoritmo: MoM trace -->
+        <div class="algo-trace">
+          <div class="algo-trace-title">
+            <span class="algo-badge badge-mom">D&C</span>
+            Mediana das Medianas — Passo a Passo
+          </div>
+          <div class="algo-code" id="momTrace">
+            <span class="trace-hint"
+              >Execute uma simulação para ver o rastreio do algoritmo...</span
+            >
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ══════════════════ MODAL: Complexidade / Teoria ══════════════════════ -->
+    <button class="info-fab" id="infoFab" title="Ver teoria dos algoritmos">
+      ?
+    </button>
+
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal">
+        <button class="modal-close" id="modalClose">✕</button>
+        <h3 class="modal-title">Algoritmos de Dividir e Conquistar</h3>
+
+        <div class="algo-section">
+          <h4>Contagem de Inversões <code>O(n log n)</code></h4>
+          <p>
+            Modificação do <strong>Merge Sort</strong>. Durante o merge de dois
+            sub-arrays, sempre que um elemento do sub-array direito for menor
+            que um elemento do esquerdo, todos os elementos restantes no
+            esquerdo formam inversões com ele.
+          </p>
+          <pre class="code-block">
+def merge_count(arr):
+    mid = len(arr) // 2
+    left, inv_L = merge_count(arr[:mid])
+    right, inv_R = merge_count(arr[mid:])
+    merged, inv_M = merge(left, right)   # conta cruzamentos
+    return merged, inv_L + inv_R + inv_M</pre
+          >
+          <p>
+            No contexto do dashboard: cada inversão = um ônibus que chegou fora
+            da ordem planejada.
+          </p>
+        </div>
+
+        <div class="algo-section">
+          <h4>Mediana das Medianas <code>O(n)</code></h4>
+          <p>
+            Garante seleção do k-ésimo menor em
+            <strong>tempo linear no pior caso</strong> (diferente do QuickSelect
+            que é O(n²) no pior).
+          </p>
+          <ol class="algo-steps">
+            <li>Dividir em grupos de 5 elementos</li>
+            <li>Encontrar mediana de cada grupo (sort trivial)</li>
+            <li>Chamar recursivamente para achar a "mediana das medianas"</li>
+            <li>Usar esse valor como pivô garantido</li>
+            <li>Particionar e recursar no sub-array correto</li>
+          </ol>
+          <p>
+            Aplicado aqui: encontra o atraso mediano ignorando outliers
+            extremos.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="loading-bus">🚌</div>
+      <div class="loading-text">Computando...</div>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+  </body>
+</html>
